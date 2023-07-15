@@ -66,7 +66,7 @@ func (this *MainGui) SetContentInspect(
 
 	fmt.Println("UI: Inspect")
 	if this.inspect == nil {
-		this.inspect = NewInspect()
+		this.inspect = NewInspect(&this.myWindow)
 		this.inspect.OnReturn = this.SetContentShowResults
 	}
 	this.inspect.SetData(id1, id2, data)

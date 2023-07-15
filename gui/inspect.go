@@ -6,10 +6,14 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"os"
+	"path/filepath"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
@@ -17,15 +21,17 @@ import (
 type Inspect struct {
 	Content  fyne.CanvasObject
 	OnReturn func(*proc.CompareResult)
+	window   *fyne.Window
 	id1      int
 	id2      int
 	dataRaw  *proc.CompareResult
 }
 
-func NewInspect() *Inspect {
+func NewInspect(window *fyne.Window) *Inspect {
 	r := new(Inspect)
 
 	r.Content = widget.NewLabel("WORKING")
+	r.window = window
 	return r
 }
 
@@ -34,14 +40,37 @@ func (this *Inspect) SetData(id1 int, id2 int, dataRaw *proc.CompareResult) {
 	this.id2 = id2
 	this.dataRaw = dataRaw
 
-	img1 := newImage(dataRaw.At(id1))
-	img2 := newImage(dataRaw.At(id2))
+	job1 := dataRaw.At(id1)
+	job2 := dataRaw.At(id2)
+	img1 := newImage(job1)
+	img2 := newImage(job2)
 	imgDiff := newDiffImage(img1.Image, img2.Image)
+
+	// Build the options quadrant
+	options := container.NewVBox(
+		container.NewGridWithColumns(2,
+			getJobFileNameAsLabel(job1),
+			getJobFileNameAsLabel(job2),
+		),
+		container.NewGridWithColumns(2,
+			getImageResAsLabel(job1),
+			getImageResAsLabel(job2),
+		),
+		container.NewGridWithColumns(2,
+			widget.NewButton("Del", func() { this.onDelete(id1) }),
+			widget.NewButton("Del", func() { this.onDelete(id2) }),
+		),
+		container.NewGridWithColumns(2,
+			widget.NewLabel(""),
+			widget.NewButton("Back", this.onReturn),
+		),
+	)
+	scroll := container.NewScroll(options)
 
 	this.Content = container.New(
 		layout.NewGridLayout(2),
 		img1, img2,
-		imgDiff, widget.NewButton("Back", this.onReturn),
+		imgDiff, scroll,
 	)
 }
 
@@ -50,6 +79,40 @@ func newImage(job *proc.Job) *canvas.Image {
 	img.FillMode = canvas.ImageFillContain
 	img.ScaleMode = canvas.ImageScaleFastest
 	return img
+}
+
+func getImageResAsLabel(job *proc.Job) fyne.CanvasObject {
+	b := job.GetImage().Bounds()
+	txt := strconv.Itoa(b.Dx()) + " x " + strconv.Itoa(b.Dy())
+	label := widget.NewLabel(txt)
+	return container.NewCenter(label)
+}
+
+func getJobFileNameAsLabel(job *proc.Job) fyne.CanvasObject {
+	base := filepath.Base(job.Filename)
+	label := widget.NewLabel(base)
+	return container.NewCenter(label)
+}
+
+func (this *Inspect) onDelete(id int) {
+	filename := this.dataRaw.At(id).Filename
+	dialog.ShowConfirm(
+		"Delete file?",
+		"Do you really want to delete:\n"+filename,
+		func(doIt bool) {
+			if !doIt {
+				return
+			}
+			err := os.Remove(filename)
+			if err != nil {
+				fmt.Println("Failed to delete ", filename, " reason: ", err)
+				return
+			}
+			this.dataRaw.Del(id)
+			this.onReturn()
+		},
+		*this.window,
+	)
 }
 
 func (this *Inspect) onReturn() {

@@ -108,18 +108,18 @@ func (this *ShowResults) SetData(data *proc.CompareResult) {
 		this.list.Refresh()
 		return
 	}
-	for i1 := 0; i1 < data.Len(); i1++ {
-		n1 := data.At(i1).Filename
-		for i2 := 0; i2 < i1; i2++ {
-			val := data.Diff(i2, i1)
+	for i2 := 0; i2 < data.Len(); i2++ {
+		n2 := data.At(i2).Filename
+		for i1 := 0; i1 < i2; i1++ {
+			val := data.Diff(i1, i2)
 			if val < filterVal {
 				continue
 			}
-			n2 := data.At(i2).Filename
+			n1 := data.At(i1).Filename
 			txt := fmt.Sprintf("Equal: %v\n%s\n%s", val, n1, n2)
 			this.data = append(this.data, entry{
-				id1:  i2,
-				id2:  i1,
+				id1:  i1,
+				id2:  i2,
 				text: txt,
 			})
 		}
